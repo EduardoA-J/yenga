@@ -53,7 +53,7 @@ public class JengaBlock : MonoBehaviour
         // off the image. While kinematic, follow the transform exactly.
         rb.interpolation = kinematic ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
-        rb.maxDepenetrationVelocity = 0.6f;
+        rb.maxDepenetrationVelocity = 0.35f;
     }
 
     public void ApplyPhysicsMaterial(PhysicsMaterial material)
@@ -119,7 +119,7 @@ public class JengaBlock : MonoBehaviour
     {
         if (rb == null || rb.isKinematic) return true;
         return rb.linearVelocity.sqrMagnitude < speedThreshold * speedThreshold
-            && rb.angularVelocity.sqrMagnitude < 0.18f;
+            && rb.angularVelocity.sqrMagnitude < 0.1f;
     }
 
     void FixedUpdate()

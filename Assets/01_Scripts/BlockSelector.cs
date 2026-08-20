@@ -17,8 +17,17 @@ public class BlockSelector : MonoBehaviour
     public LayerMask blockLayerMask;
 
     [Header("Extracción")]
-    public float extractThreshold = 0.06f;
-    public float moveStep = 0.012f;
+    public float extractThreshold = 0.085f;
+    public float moveStep = 0.008f;
+    [Tooltip("Eleva el bloque al seleccionarlo para que no se mezcle con los vecinos.")]
+    public float selectLiftOffset = 0.0045f;
+
+    [Header("Arrastre")]
+    [Tooltip("Escala el desplazamiento del dedo (menor = más control).")]
+    public float dragSensitivity = 0.52f;
+    [Tooltip("Máximo desplazamiento por frame para evitar saltos bruscos.")]
+    public float maxDragStep = 0.006f;
+    public float tapPixelSlop = 42f;
 
     [Header("Colocación")]
     public float snapDistance = 0.035f;
@@ -30,8 +39,6 @@ public class BlockSelector : MonoBehaviour
     public Color ghostHighlightColor = new Color(1f, 0.9f, 0.2f, 0.75f);
     public float arrowWorldLength = 0.028f;
     public float arrowWorldThickness = 0.01f;
-
-    const float TapPixelSlop = 24f;
 
     JengaBlock selectedBlock;
     JengaBlock heldBlock;
@@ -202,7 +209,7 @@ public class BlockSelector : MonoBehaviour
     void DragPointer(Vector2 screenPos)
     {
         if (!isDragging) return;
-        if (Vector2.Distance(screenPos, pointerDownPos) < TapPixelSlop) return;
+        if (Vector2.Distance(screenPos, pointerDownPos) < tapPixelSlop) return;
 
         if (IsPlacing)
         {
@@ -214,10 +221,12 @@ public class BlockSelector : MonoBehaviour
 
         Vector3 worldPoint = ProjectOnDragPlane(screenPos, selectedBlock);
         Vector3 delta = worldPoint - lastDragWorld;
-        selectedBlock.transform.position += delta;
+        Vector3 axis = selectedBlock.transform.right;
+        delta = axis * Vector3.Dot(delta, axis);
+        ApplyExtractDrag(selectedBlock, delta);
         lastDragWorld = worldPoint;
 
-        if (Vector3.Distance(selectedBlock.transform.position, originalWorldPos) >= extractThreshold)
+        if (GetExtractDistance(selectedBlock) >= extractThreshold)
             ExtractSelected();
     }
 
@@ -226,7 +235,7 @@ public class BlockSelector : MonoBehaviour
         if (!pointerHeld) return;
         pointerHeld = false;
 
-        bool wasDrag = isDragging && Vector2.Distance(screenPos, pointerDownPos) > TapPixelSlop;
+        bool wasDrag = isDragging && Vector2.Distance(screenPos, pointerDownPos) > tapPixelSlop;
         isDragging = false;
 
         if (IsPlacing)
@@ -279,8 +288,8 @@ public class BlockSelector : MonoBehaviour
         if (heldBlock == null || towerBuilder == null) return;
 
         Vector3 worldPoint = ProjectOnTopPlane(screenPos);
-        Vector3 delta = worldPoint - lastDragWorld;
-        heldBlock.transform.position += Vector3.ProjectOnPlane(delta, towerBuilder.transform.up);
+        Vector3 delta = Vector3.ProjectOnPlane(worldPoint - lastDragWorld, towerBuilder.transform.up);
+        ApplyDragDelta(heldBlock.transform, delta);
         lastDragWorld = worldPoint;
 
             if (towerBuilder.TryGetNearestSlot(heldBlock.transform.position, snapDistance, out TowerBuilder.PlacementSlot slot))
@@ -376,10 +385,98 @@ public class BlockSelector : MonoBehaviour
     void SelectBlock(JengaBlock block)
     {
         selectedBlock = block;
-        selectedBlock.SetKinematic(true);
         originalWorldPos = block.transform.position;
+        selectedBlock.SetKinematic(true);
+
+        if (towerBuilder != null && selectLiftOffset > 0f)
+            selectedBlock.transform.position += towerBuilder.transform.up * selectLiftOffset;
+
         selectedBlock.SetSelectedVisual(true, selectedColor);
         ShowArrows(block);
+    }
+
+    void ApplyDragDelta(Transform target, Vector3 delta)
+    {
+        delta *= dragSensitivity;
+        float maxStep = Mathf.Max(maxDragStep, 0.0001f);
+        if (delta.sqrMagnitude > maxStep * maxStep)
+            delta = delta.normalized * maxStep;
+
+        target.position += delta;
+    }
+
+    void ApplyExtractDrag(JengaBlock block, Vector3 delta)
+    {
+        if (block == null) return;
+
+        Vector3 axis = block.transform.right;
+        delta = axis * Vector3.Dot(delta, axis);
+        delta *= dragSensitivity;
+
+        float maxStep = Mathf.Max(maxDragStep, 0.0001f);
+        if (delta.sqrMagnitude > maxStep * maxStep)
+            delta = delta.normalized * maxStep;
+
+        float allowed = ComputeAllowedSlide(block, delta);
+        if (allowed <= 0f) return;
+
+        block.transform.position += axis * allowed;
+    }
+
+    float GetExtractDistance(JengaBlock block)
+    {
+        if (block == null) return 0f;
+        Vector3 axis = block.transform.right;
+        return Mathf.Abs(Vector3.Dot(block.transform.position - originalWorldPos, axis));
+    }
+
+    float ComputeAllowedSlide(JengaBlock block, Vector3 delta)
+    {
+        float want = delta.magnitude;
+        if (want < 1e-6f) return 0f;
+
+        Vector3 dir = delta / want;
+        BoxCollider col = block.GetComponent<BoxCollider>();
+        if (col == null) return want;
+
+        const int steps = 12;
+        for (int i = steps; i >= 0; i--)
+        {
+            float distance = want * i / steps;
+            Vector3 testPos = block.transform.position + dir * distance;
+            if (!IntersectsOtherBlocks(block, col, testPos, block.transform.rotation))
+                return distance;
+        }
+
+        return 0f;
+    }
+
+    bool IntersectsOtherBlocks(JengaBlock self, BoxCollider col, Vector3 worldPos, Quaternion worldRot)
+    {
+        Vector3 scale = self.transform.lossyScale;
+        Vector3 halfExtents = Vector3.Scale(col.size, scale) * 0.5f;
+        halfExtents *= 0.94f;
+
+        Vector3 center = worldPos + worldRot * Vector3.Scale(col.center, scale);
+        int mask = blockLayerMask.value != 0 ? blockLayerMask.value : Physics.AllLayers;
+        Collider[] hits = Physics.OverlapBox(
+            center,
+            halfExtents,
+            worldRot,
+            mask,
+            QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            if (hits[i] == col) continue;
+
+            JengaBlock other = GetBlock(hits[i]);
+            if (other == null || other == self) continue;
+            if (other.isRemoved || other.isHeld) continue;
+            return true;
+        }
+
+        return false;
     }
 
     void NudgeSelected(int direction)
@@ -387,10 +484,9 @@ public class BlockSelector : MonoBehaviour
         if (selectedBlock == null) return;
 
         Vector3 axis = selectedBlock.transform.right;
-        selectedBlock.transform.position += axis * (moveStep * direction);
+        ApplyExtractDrag(selectedBlock, axis * (moveStep * direction));
 
-        float distanceMoved = Vector3.Distance(selectedBlock.transform.position, originalWorldPos);
-        if (distanceMoved >= extractThreshold)
+        if (GetExtractDistance(selectedBlock) >= extractThreshold)
             ExtractSelected();
     }
 
@@ -398,7 +494,7 @@ public class BlockSelector : MonoBehaviour
     {
         if (selectedBlock == null) return;
 
-        float distanceMoved = Vector3.Distance(selectedBlock.transform.position, originalWorldPos);
+        float distanceMoved = GetExtractDistance(selectedBlock);
         if (distanceMoved >= extractThreshold)
             ExtractSelected();
         else
@@ -411,6 +507,8 @@ public class BlockSelector : MonoBehaviour
     void ExtractSelected()
     {
         if (selectedBlock == null) return;
+
+        AudioManager.Instance?.PlayBlockExtract();
 
         JengaBlock block = selectedBlock;
         HideArrows();

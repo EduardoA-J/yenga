@@ -14,10 +14,10 @@ public static class JengaPhysics
     {
         Physics.defaultContactOffset = 0.00035f;
         Physics.bounceThreshold = 0.15f;
-        Physics.sleepThreshold = 0.008f;
-        Physics.defaultSolverIterations = 20;
-        Physics.defaultSolverVelocityIterations = 12;
-        Physics.defaultMaxDepenetrationVelocity = 0.8f;
+        Physics.sleepThreshold = 0.012f;
+        Physics.defaultSolverIterations = 18;
+        Physics.defaultSolverVelocityIterations = 10;
+        Physics.defaultMaxDepenetrationVelocity = 0.45f;
     }
 
     public static PhysicsMaterial CreateWoodMaterial()
@@ -38,13 +38,13 @@ public static class JengaPhysics
         if (rb == null) return;
 
         rb.mass = BlockMass;
-        rb.linearDamping = 0.06f;
-        rb.angularDamping = 0.28f;
+        rb.linearDamping = 0.14f;
+        rb.angularDamping = 0.48f;
         rb.useGravity = false;
-        rb.maxAngularVelocity = 8f;
-        rb.maxDepenetrationVelocity = 0.6f;
-        rb.solverIterations = 18;
-        rb.solverVelocityIterations = 10;
+        rb.maxAngularVelocity = 4.5f;
+        rb.maxDepenetrationVelocity = 0.35f;
+        rb.solverIterations = 14;
+        rb.solverVelocityIterations = 8;
         rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
         rb.interpolation = RigidbodyInterpolation.None;
 

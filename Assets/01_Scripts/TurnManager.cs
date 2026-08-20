@@ -91,6 +91,7 @@ public class TurnManager : MonoBehaviour
     {
         if (gameOver) return;
         gameOver = true;
+        AudioManager.Instance?.PlayTowerCollapse();
         string message = $"¡{CurrentPlayer} derribó la torre! {reason}";
         OnGameOver?.Invoke(message);
         Debug.Log(message);

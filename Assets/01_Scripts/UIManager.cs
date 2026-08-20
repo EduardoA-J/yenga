@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 
@@ -19,6 +20,7 @@ public class UIManager : MonoBehaviour
     void Start()
     {
         EnsureOverlays();
+        ApplyVisualStyles();
 
         if (TurnManager.Instance != null)
         {
@@ -60,8 +62,8 @@ public class UIManager : MonoBehaviour
     {
         if (gameOverPanel != null) gameOverPanel.SetActive(true);
         if (gameOverText != null) gameOverText.text = message;
-        if (hintText != null) hintText.gameObject.SetActive(false);
-        if (invalidText != null) invalidText.gameObject.SetActive(false);
+        SetMessageVisible(hintText, false);
+        SetMessageVisible(invalidText, false);
     }
 
     public void ShowInvalidMove(string reason)
@@ -81,14 +83,14 @@ public class UIManager : MonoBehaviour
     {
         if (trackingText != null)
         {
-            trackingText.gameObject.SetActive(!stable);
+            SetMessageVisible(trackingText, !stable);
             trackingText.text = "Apunta a la imagen impresa para jugar.\nLa torre solo se puede tocar con seguimiento estable.";
         }
 
         if (hintText != null)
         {
             bool playing = stable && (TurnManager.Instance == null || !TurnManager.Instance.IsGameOver);
-            hintText.gameObject.SetActive(playing);
+            SetMessageVisible(hintText, playing);
             if (playing)
             {
                 hintText.text = TurnManager.Instance != null && TurnManager.Instance.Phase == TurnManager.TurnPhase.Place
@@ -103,9 +105,9 @@ public class UIManager : MonoBehaviour
     IEnumerator ShowInvalidRoutine(string reason)
     {
         invalidText.text = reason;
-        invalidText.gameObject.SetActive(true);
+        SetMessageVisible(invalidText, true);
         yield return new WaitForSeconds(2.4f);
-        if (invalidText != null) invalidText.gameObject.SetActive(false);
+        SetMessageVisible(invalidText, false);
         invalidRoutine = null;
     }
 
@@ -115,7 +117,7 @@ public class UIManager : MonoBehaviour
         if (ARTrackingGate.Instance != null && !ARTrackingGate.Instance.IsStable) return;
         if (TurnManager.Instance.IsGameOver) return;
 
-        hintText.gameObject.SetActive(true);
+        SetMessageVisible(hintText, true);
         hintText.text = TurnManager.Instance.Phase == TurnManager.TurnPhase.Place
             ? "Arrastra el bloque a una ranura verde de la cima y suéltalo."
             : "Toca un bloque (no el de arriba), sácalo y luego colócalo en la cima.";
@@ -128,42 +130,39 @@ public class UIManager : MonoBehaviour
             : FindFirstObjectByType<Canvas>();
         if (canvas == null) return;
 
-        trackingText = CreateLabel(canvas.transform, "TrackingWarning", new Vector2(0f, 220f), 36, Color.white);
-        hintText = CreateLabel(canvas.transform, "HintText", new Vector2(0f, -280f), 28, new Color(1f, 0.95f, 0.75f));
-        invalidText = CreateLabel(canvas.transform, "InvalidMoveText", new Vector2(0f, 80f), 32, new Color(1f, 0.45f, 0.35f));
+        CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
+        UIStyleHelper.ConfigureCanvas(scaler);
 
-        trackingText.gameObject.SetActive(false);
-        hintText.gameObject.SetActive(false);
-        invalidText.gameObject.SetActive(false);
+        trackingText = UIStyleHelper.GetOrCreateMessage(
+            canvas.transform, "TrackingWarning", UIStyleHelper.MessageKind.Tracking, new Vector2(0f, 260f));
+        hintText = UIStyleHelper.GetOrCreateMessage(
+            canvas.transform, "HintText", UIStyleHelper.MessageKind.Hint, new Vector2(0f, -300f));
+        invalidText = UIStyleHelper.GetOrCreateMessage(
+            canvas.transform, "InvalidMoveText", UIStyleHelper.MessageKind.Invalid, new Vector2(0f, 100f));
+
+        SetMessageVisible(trackingText, false);
+        SetMessageVisible(hintText, false);
+        SetMessageVisible(invalidText, false);
     }
 
-    static TMP_Text CreateLabel(Transform parent, string name, Vector2 anchoredPos, int fontSize, Color color)
+    void ApplyVisualStyles()
     {
-        Transform existing = parent.Find(name);
-        if (existing != null)
-        {
-            TMP_Text existingText = existing.GetComponent<TMP_Text>();
-            if (existingText != null) return existingText;
-        }
+        UIStyleHelper.StyleTurnBanner(turnText);
 
-        GameObject go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
-        go.transform.SetParent(parent, false);
+        Button restartButton = gameOverPanel != null
+            ? gameOverPanel.GetComponentInChildren<Button>(true)
+            : null;
+        UIStyleHelper.StyleGameOverPanel(gameOverPanel, gameOverText, restartButton);
+    }
 
-        RectTransform rect = go.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0.08f, 0.5f);
-        rect.anchorMax = new Vector2(0.92f, 0.5f);
-        rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = anchoredPos;
-        rect.sizeDelta = new Vector2(0f, 120f);
+    static void SetMessageVisible(TMP_Text text, bool visible)
+    {
+        if (text == null) return;
 
-        TextMeshProUGUI tmp = go.GetComponent<TextMeshProUGUI>();
-        tmp.fontSize = fontSize;
-        tmp.color = color;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.enableWordWrapping = true;
-        tmp.raycastTarget = false;
-        tmp.outlineWidth = 0.2f;
-        tmp.outlineColor = Color.black;
-        return tmp;
+        Transform card = text.transform.parent;
+        if (card != null && card.GetComponent<Image>() != null)
+            card.gameObject.SetActive(visible);
+        else
+            text.gameObject.SetActive(visible);
     }
 }

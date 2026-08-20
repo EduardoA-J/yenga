@@ -10,11 +10,15 @@ public class StabilityMonitor : MonoBehaviour
     public TowerBuilder towerBuilder;
 
     [Header("Umbrales de caída")]
-    public float fallAngleThreshold = 28f;
-    public float fallDropThreshold = 0.018f;
-    public float minSettleTime = 0.45f;
-    public float maxSettleTime = 2.2f;
-    public float stableSpeed = 0.04f;
+    public float fallAngleThreshold = 42f;
+    public float fallDropThreshold = 0.045f;
+    [Tooltip("Espera antes de evaluar caída (evita falsos positivos al activar física).")]
+    public float fallCheckDelay = 0.4f;
+    [Tooltip("Tiempo continuo en estado de caída antes de confirmar game over.")]
+    public float fallConfirmTime = 0.28f;
+    public float minSettleTime = 0.65f;
+    public float maxSettleTime = 2.8f;
+    public float stableSpeed = 0.055f;
 
     public void SettleTower(System.Action onStable, System.Action onFell = null)
     {
@@ -34,8 +38,8 @@ public class StabilityMonitor : MonoBehaviour
 
         int previousIterations = Physics.defaultSolverIterations;
         int previousVelocity = Physics.defaultSolverVelocityIterations;
-        Physics.defaultSolverIterations = 22;
-        Physics.defaultSolverVelocityIterations = 14;
+        Physics.defaultSolverIterations = 18;
+        Physics.defaultSolverVelocityIterations = 10;
 
         foreach (var block in towerBuilder.AllBlocks)
         {
@@ -46,24 +50,28 @@ public class StabilityMonitor : MonoBehaviour
         float timer = 0f;
         float fallenHold = 0f;
         bool fell = false;
+        float confirmTime = Mathf.Max(fallConfirmTime, Time.fixedDeltaTime);
 
         while (timer < maxSettleTime)
         {
             yield return new WaitForFixedUpdate();
             timer += Time.fixedDeltaTime;
 
-            if (TowerHasFallen())
+            if (timer >= fallCheckDelay)
             {
-                fallenHold += Time.fixedDeltaTime;
-                if (fallenHold >= 0.12f)
+                if (TowerHasFallen())
                 {
-                    fell = true;
-                    break;
+                    fallenHold += Time.fixedDeltaTime;
+                    if (fallenHold >= confirmTime)
+                    {
+                        fell = true;
+                        break;
+                    }
                 }
-            }
-            else
-            {
-                fallenHold = 0f;
+                else
+                {
+                    fallenHold = 0f;
+                }
             }
 
             if (timer >= minSettleTime && TowerIsSettled())
