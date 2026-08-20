@@ -10,17 +10,28 @@ public class StabilityMonitor : MonoBehaviour
     public TowerBuilder towerBuilder;
 
     [Header("Umbrales de caída")]
-    public float fallAngleThreshold = 42f;
-    public float fallDropThreshold = 0.045f;
+    public float fallAngleThreshold = 45f;
+    public float fallDropThreshold = 0.05f;
     [Tooltip("Espera antes de evaluar caída (evita falsos positivos al activar física).")]
-    public float fallCheckDelay = 0.4f;
+    public float fallCheckDelay = 0.5f;
     [Tooltip("Tiempo continuo en estado de caída antes de confirmar game over.")]
-    public float fallConfirmTime = 0.28f;
-    public float minSettleTime = 0.65f;
-    public float maxSettleTime = 2.8f;
-    public float stableSpeed = 0.055f;
+    public float fallConfirmTime = 0.35f;
+    public float minSettleTime = 0.6f;
+    public float maxSettleTime = 2.6f;
+    public float stableSpeed = 0.06f;
 
-    public void SettleTower(System.Action onStable, System.Action onFell = null)
+    [Header("Alcance de la simulación")]
+    [Tooltip("Capas por debajo del movimiento que también se simulan. El resto queda fijo.")]
+    public int layersBelowToSimulate = 1;
+
+    /// <summary>
+    /// Simula la torre. <paramref name="fromLayer"/> limita la simulación a las
+    /// capas afectadas: las inferiores se mantienen fijas y hacen de base sólida.
+    /// <paramref name="anchoredBlock"/> es la pieza recién colocada, que se deja
+    /// quieta para que no golpee la pila al soltarla.
+    /// </summary>
+    public void SettleTower(System.Action onStable, System.Action onFell = null,
+                            int fromLayer = 0, JengaBlock anchoredBlock = null)
     {
         if (!isActiveAndEnabled || towerBuilder == null)
         {
@@ -29,21 +40,26 @@ public class StabilityMonitor : MonoBehaviour
         }
 
         StopAllCoroutines();
-        StartCoroutine(SettleRoutine(onStable, onFell));
+        StartCoroutine(SettleRoutine(onStable, onFell, fromLayer, anchoredBlock));
     }
 
-    IEnumerator SettleRoutine(System.Action onStable, System.Action onFell)
+    IEnumerator SettleRoutine(System.Action onStable, System.Action onFell,
+                              int fromLayer, JengaBlock anchoredBlock)
     {
         JengaPhysics.ConfigureWorld();
 
         int previousIterations = Physics.defaultSolverIterations;
         int previousVelocity = Physics.defaultSolverVelocityIterations;
-        Physics.defaultSolverIterations = 18;
-        Physics.defaultSolverVelocityIterations = 10;
+        Physics.defaultSolverIterations = 34;
+        Physics.defaultSolverVelocityIterations = 18;
+
+        int minSimulatedLayer = Mathf.Max(0, fromLayer - Mathf.Max(0, layersBelowToSimulate));
 
         foreach (var block in towerBuilder.AllBlocks)
         {
             if (!TowerBuilder.IsInTower(block)) continue;
+            if (block == anchoredBlock) continue;
+            if (block.layerIndex < minSimulatedLayer) continue;
             block.ReleaseToPhysics();
         }
 
@@ -85,6 +101,14 @@ public class StabilityMonitor : MonoBehaviour
         {
             TurnManager.Instance?.EndGame("La torre perdió el equilibrio.");
             onFell?.Invoke();
+
+            // Deja correr la animación de derrumbe con toda la torre suelta.
+            foreach (var block in towerBuilder.AllBlocks)
+            {
+                if (!TowerBuilder.IsInTower(block)) continue;
+                block.ReleaseToPhysics();
+            }
+
             float extra = 0f;
             while (extra < 2.2f)
             {

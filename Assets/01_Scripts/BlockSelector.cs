@@ -30,7 +30,7 @@ public class BlockSelector : MonoBehaviour
     public float tapPixelSlop = 28f;
 
     [Header("Colocación")]
-    public float snapDistance = 0.035f;
+    public float snapDistance = 0.055f;
 
     [Header("Selección visual")]
     public Color selectedColor = new Color(1f, 0.55f, 0.1f);
@@ -495,6 +495,8 @@ public class BlockSelector : MonoBehaviour
 
     void BeginExtractedPlacement(JengaBlock block)
     {
+        int removedLayer = block.layerIndex;
+
         block.isRemoved = true;
         block.isHeld = true;
         block.SetKinematic(true);
@@ -518,7 +520,8 @@ public class BlockSelector : MonoBehaviour
                 {
                     settling = false;
                     HidePlacementGhosts();
-                });
+                },
+                removedLayer);
         }
         else
         {
@@ -557,7 +560,9 @@ public class BlockSelector : MonoBehaviour
                     settling = false;
                     TurnManager.Instance?.CompleteTurn();
                 },
-                () => { settling = false; });
+                () => { settling = false; },
+                slot.layerIndex,
+                block);
         }
         else
         {

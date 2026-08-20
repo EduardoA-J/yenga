@@ -53,7 +53,7 @@ public class JengaBlock : MonoBehaviour
         // off the image. While kinematic, follow the transform exactly.
         rb.interpolation = kinematic ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
-        rb.maxDepenetrationVelocity = 0.35f;
+        rb.maxDepenetrationVelocity = 0.08f;
     }
 
     public void ApplyPhysicsMaterial(PhysicsMaterial material)
@@ -128,5 +128,11 @@ public class JengaBlock : MonoBehaviour
 
         Vector3 down = gravitySource != null ? -gravitySource.up : Vector3.down;
         rb.AddForce(down * JengaPhysics.Gravity, ForceMode.Acceleration);
+
+        // Amortigua microimpulsos del solver para que la pila no se "camine".
+        if (rb.linearVelocity.sqrMagnitude < 0.0004f)
+            rb.linearVelocity *= 0.5f;
+        if (rb.angularVelocity.sqrMagnitude < 0.01f)
+            rb.angularVelocity *= 0.5f;
     }
 }

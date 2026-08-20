@@ -3178,7 +3178,7 @@ MonoBehaviour:
   dragSensitivity: 0.85
   maxDragStep: 0.014
   tapPixelSlop: 28
-  snapDistance: 0.035
+  snapDistance: 0.055
   selectedColor: {r: 1, g: 0.55, b: 0.1, a: 1}
   arrowColor: {r: 1, g: 0.85, b: 0.15, a: 1}
   ghostColor: {r: 0.25, g: 0.95, b: 0.4, a: 0.55}
@@ -5586,13 +5586,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StabilityMonitor
   towerBuilder: {fileID: 1277899368}
-  fallAngleThreshold: 42
-  fallDropThreshold: 0.045
-  fallCheckDelay: 0.4
-  fallConfirmTime: 0.28
-  minSettleTime: 0.65
-  maxSettleTime: 2.8
-  stableSpeed: 0.055
+  fallAngleThreshold: 45
+  fallDropThreshold: 0.05
+  fallCheckDelay: 0.5
+  fallConfirmTime: 0.35
+  minSettleTime: 0.6
+  maxSettleTime: 2.6
+  stableSpeed: 0.06
+  layersBelowToSimulate: 1
 --- !u!114 &1277899368
 MonoBehaviour:
   m_ObjectHideFlags: 0

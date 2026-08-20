@@ -318,7 +318,9 @@ public class TowerBuilder : MonoBehaviour
         block.slotIndex = slot.slotIndex;
         block.transform.SetParent(transform, true);
         block.transform.localRotation = slot.localRotation;
-        block.transform.localPosition = slot.localPosition + Vector3.up * 0.0006f;
+        // Apoyo exacto sobre la capa: un hueco aquí se traduce en un golpe al
+        // activar la física y suele tumbar la torre.
+        block.transform.localPosition = slot.localPosition;
         block.transform.localScale = new Vector3(blockLength, blockHeight, blockWidth);
         block.SetColliderEnabled(true);
         block.SetKinematic(true);
