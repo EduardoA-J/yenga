@@ -17,17 +17,17 @@ public class BlockSelector : MonoBehaviour
     public LayerMask blockLayerMask;
 
     [Header("Extracción")]
-    public float extractThreshold = 0.085f;
-    public float moveStep = 0.008f;
-    [Tooltip("Eleva el bloque al seleccionarlo para que no se mezcle con los vecinos.")]
-    public float selectLiftOffset = 0.0045f;
+    public float extractThreshold = 0.055f;
+    public float moveStep = 0.012f;
+    [Tooltip("Eleva un poco el bloque al seleccionarlo (separación visual).")]
+    public float selectLiftOffset = 0.002f;
 
     [Header("Arrastre")]
     [Tooltip("Escala el desplazamiento del dedo (menor = más control).")]
-    public float dragSensitivity = 0.52f;
+    public float dragSensitivity = 0.85f;
     [Tooltip("Máximo desplazamiento por frame para evitar saltos bruscos.")]
-    public float maxDragStep = 0.006f;
-    public float tapPixelSlop = 42f;
+    public float maxDragStep = 0.014f;
+    public float tapPixelSlop = 28f;
 
     [Header("Colocación")]
     public float snapDistance = 0.035f;
@@ -221,8 +221,6 @@ public class BlockSelector : MonoBehaviour
 
         Vector3 worldPoint = ProjectOnDragPlane(screenPos, selectedBlock);
         Vector3 delta = worldPoint - lastDragWorld;
-        Vector3 axis = selectedBlock.transform.right;
-        delta = axis * Vector3.Dot(delta, axis);
         ApplyExtractDrag(selectedBlock, delta);
         lastDragWorld = worldPoint;
 
@@ -405,11 +403,19 @@ public class BlockSelector : MonoBehaviour
         target.position += delta;
     }
 
+    static Vector3 GetExtractAxis(JengaBlock block)
+    {
+        Vector3 scale = block.transform.lossyScale;
+        return Mathf.Abs(scale.z) >= Mathf.Abs(scale.x)
+            ? block.transform.forward
+            : block.transform.right;
+    }
+
     void ApplyExtractDrag(JengaBlock block, Vector3 delta)
     {
         if (block == null) return;
 
-        Vector3 axis = block.transform.right;
+        Vector3 axis = GetExtractAxis(block);
         delta = axis * Vector3.Dot(delta, axis);
         delta *= dragSensitivity;
 
@@ -417,73 +423,21 @@ public class BlockSelector : MonoBehaviour
         if (delta.sqrMagnitude > maxStep * maxStep)
             delta = delta.normalized * maxStep;
 
-        float allowed = ComputeAllowedSlide(block, delta);
-        if (allowed <= 0f) return;
-
-        block.transform.position += axis * allowed;
+        block.transform.position += delta;
     }
 
     float GetExtractDistance(JengaBlock block)
     {
         if (block == null) return 0f;
-        Vector3 axis = block.transform.right;
+        Vector3 axis = GetExtractAxis(block);
         return Mathf.Abs(Vector3.Dot(block.transform.position - originalWorldPos, axis));
-    }
-
-    float ComputeAllowedSlide(JengaBlock block, Vector3 delta)
-    {
-        float want = delta.magnitude;
-        if (want < 1e-6f) return 0f;
-
-        Vector3 dir = delta / want;
-        BoxCollider col = block.GetComponent<BoxCollider>();
-        if (col == null) return want;
-
-        const int steps = 12;
-        for (int i = steps; i >= 0; i--)
-        {
-            float distance = want * i / steps;
-            Vector3 testPos = block.transform.position + dir * distance;
-            if (!IntersectsOtherBlocks(block, col, testPos, block.transform.rotation))
-                return distance;
-        }
-
-        return 0f;
-    }
-
-    bool IntersectsOtherBlocks(JengaBlock self, BoxCollider col, Vector3 worldPos, Quaternion worldRot)
-    {
-        Vector3 scale = self.transform.lossyScale;
-        Vector3 halfExtents = Vector3.Scale(col.size, scale) * 0.5f;
-        halfExtents *= 0.94f;
-
-        Vector3 center = worldPos + worldRot * Vector3.Scale(col.center, scale);
-        int mask = blockLayerMask.value != 0 ? blockLayerMask.value : Physics.AllLayers;
-        Collider[] hits = Physics.OverlapBox(
-            center,
-            halfExtents,
-            worldRot,
-            mask,
-            QueryTriggerInteraction.Ignore);
-
-        for (int i = 0; i < hits.Length; i++)
-        {
-            if (hits[i] == col) continue;
-
-            JengaBlock other = GetBlock(hits[i]);
-            if (other == null || other == self) continue;
-            if (other.isRemoved || other.isHeld) continue;
-            return true;
-        }
-
-        return false;
     }
 
     void NudgeSelected(int direction)
     {
         if (selectedBlock == null) return;
 
-        Vector3 axis = selectedBlock.transform.right;
+        Vector3 axis = GetExtractAxis(selectedBlock);
         ApplyExtractDrag(selectedBlock, axis * (moveStep * direction));
 
         if (GetExtractDistance(selectedBlock) >= extractThreshold)
@@ -678,8 +632,17 @@ public class BlockSelector : MonoBehaviour
     void ShowArrows(JengaBlock block)
     {
         HideArrows();
-        posArrow = CreateArrow("ArrowPositive", block.transform, new Vector3(0.62f, 0f, 0f), Quaternion.identity, 1);
-        negArrow = CreateArrow("ArrowNegative", block.transform, new Vector3(-0.62f, 0f, 0f), Quaternion.Euler(0f, 180f, 0f), -1);
+        bool alongZ = Mathf.Abs(block.transform.lossyScale.z) >= Mathf.Abs(block.transform.lossyScale.x);
+        if (alongZ)
+        {
+            posArrow = CreateArrow("ArrowPositive", block.transform, new Vector3(0f, 0f, 0.62f), Quaternion.Euler(0f, 90f, 0f), 1);
+            negArrow = CreateArrow("ArrowNegative", block.transform, new Vector3(0f, 0f, -0.62f), Quaternion.Euler(0f, -90f, 0f), -1);
+        }
+        else
+        {
+            posArrow = CreateArrow("ArrowPositive", block.transform, new Vector3(0.62f, 0f, 0f), Quaternion.identity, 1);
+            negArrow = CreateArrow("ArrowNegative", block.transform, new Vector3(-0.62f, 0f, 0f), Quaternion.Euler(0f, 180f, 0f), -1);
+        }
     }
 
     void HideArrows()

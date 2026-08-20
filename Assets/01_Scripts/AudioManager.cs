@@ -23,13 +23,31 @@ public class AudioManager : MonoBehaviour
         }
 
         Instance = this;
-        sfxSource = GetComponent<AudioSource>();
+        EnsureSource();
+    }
+
+    void Start()
+    {
+        EnsureSource();
+        if (blockExtractClip == null)
+            blockExtractClip = Resources.Load<AudioClip>("block");
+        if (towerCollapseClip == null)
+            towerCollapseClip = Resources.Load<AudioClip>("collapse");
+    }
+
+    void EnsureSource()
+    {
+        if (sfxSource == null)
+            sfxSource = GetComponent<AudioSource>();
         if (sfxSource == null)
             sfxSource = gameObject.AddComponent<AudioSource>();
 
         sfxSource.playOnAwake = false;
         sfxSource.loop = false;
+        sfxSource.mute = false;
+        sfxSource.volume = 1f;
         sfxSource.spatialBlend = 0f;
+        sfxSource.ignoreListenerPause = true;
     }
 
     void OnDestroy()
@@ -40,13 +58,18 @@ public class AudioManager : MonoBehaviour
 
     public void PlayBlockExtract()
     {
-        if (blockExtractClip != null)
-            sfxSource.PlayOneShot(blockExtractClip);
+        PlaySfx(blockExtractClip);
     }
 
     public void PlayTowerCollapse()
     {
-        if (towerCollapseClip != null)
-            sfxSource.PlayOneShot(towerCollapseClip);
+        PlaySfx(towerCollapseClip);
+    }
+
+    void PlaySfx(AudioClip clip)
+    {
+        if (clip == null) return;
+        EnsureSource();
+        sfxSource.PlayOneShot(clip, 1f);
     }
 }

@@ -3172,11 +3172,12 @@ MonoBehaviour:
   blockLayerMask:
     serializedVersion: 2
     m_Bits: 64
-  extractThreshold: 0.085
-  moveStep: 0.008
-  dragSensitivity: 0.52
-  maxDragStep: 0.006
-  tapPixelSlop: 42
+  extractThreshold: 0.055
+  moveStep: 0.012
+  selectLiftOffset: 0.002
+  dragSensitivity: 0.85
+  maxDragStep: 0.014
+  tapPixelSlop: 28
   snapDistance: 0.035
   selectedColor: {r: 1, g: 0.55, b: 0.1, a: 1}
   arrowColor: {r: 1, g: 0.85, b: 0.15, a: 1}
