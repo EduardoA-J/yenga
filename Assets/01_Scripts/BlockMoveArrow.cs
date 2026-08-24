@@ -2,9 +2,9 @@ using UnityEngine;
 
 /// <summary>
 /// Identifica una flecha de movimiento generada al seleccionar un bloque.
-/// direction = +1 o -1 a lo largo del eje largo del bloque.
+/// localDirection es la dirección de empuje en el espacio local del bloque.
 /// </summary>
 public class BlockMoveArrow : MonoBehaviour
 {
-    public int direction = 1;
+    public Vector3 localDirection = Vector3.right;
 }

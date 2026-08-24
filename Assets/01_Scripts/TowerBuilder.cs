@@ -32,13 +32,18 @@ public class TowerBuilder : MonoBehaviour
     {
         public int layerIndex;
         public int slotIndex;
-        public bool rotated;
         public Vector3 localPosition;
         public Quaternion localRotation;
     }
 
     PhysicsMaterial woodMaterial;
     Transform groundTransform;
+
+    /// <summary>
+    /// Escala del bloque: el lado largo va en el eje Z local, igual que las
+    /// piezas colocadas a mano en la escena.
+    /// </summary>
+    public Vector3 BlockScale => new Vector3(blockWidth, blockHeight, blockLength);
 
     void Start()
     {
@@ -70,13 +75,27 @@ public class TowerBuilder : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Dirección, en espacio de la torre, del lado largo del bloque.
+    /// Se deduce de la escala real, así funciona tanto con la torre montada a
+    /// mano en la escena como con la generada desde el prefab.
+    /// </summary>
+    public bool IsLongAxisAlongX(Transform blockTransform)
+    {
+        Vector3 scale = blockTransform.lossyScale;
+        Vector3 longLocal = Mathf.Abs(scale.z) >= Mathf.Abs(scale.x) ? Vector3.forward : Vector3.right;
+        Vector3 local = transform.InverseTransformDirection(blockTransform.rotation * longLocal);
+        return Mathf.Abs(local.x) >= Mathf.Abs(local.z);
+    }
+
     void AssignLayerAndSlot(JengaBlock block)
     {
         Vector3 local = transform.InverseTransformPoint(block.transform.position);
         block.layerIndex = Mathf.Max(0, Mathf.RoundToInt(local.y / Mathf.Max(blockHeight, 0.0001f)));
 
-        bool rotated = Mathf.Abs(Vector3.Dot(block.transform.right, transform.forward)) > 0.7f;
-        float lateral = rotated ? local.x : local.z;
+        // Las piezas se reparten en el eje perpendicular a su lado largo.
+        bool alongX = IsLongAxisAlongX(block.transform);
+        float lateral = alongX ? local.z : local.x;
         block.slotIndex = Mathf.Clamp(Mathf.RoundToInt(lateral / Mathf.Max(blockWidth, 0.0001f)) + 1, 0, 2);
     }
 
@@ -86,7 +105,7 @@ public class TowerBuilder : MonoBehaviour
 
         for (int layer = 0; layer < totalLayers; layer++)
         {
-            bool rotated = layer % 2 == 1;
+            bool alongX = layer % 2 == 1;
             float y = blockHeight * layer + blockHeight / 2f;
 
             for (int slot = 0; slot < 3; slot++)
@@ -94,13 +113,13 @@ public class TowerBuilder : MonoBehaviour
                 GameObject go = Instantiate(blockPrefab, transform);
                 float offset = (slot - 1) * blockWidth;
 
-                Vector3 localPos = rotated
-                    ? new Vector3(offset, y, 0f)
-                    : new Vector3(0f, y, offset);
+                Vector3 localPos = alongX
+                    ? new Vector3(0f, y, offset)
+                    : new Vector3(offset, y, 0f);
 
                 go.transform.localPosition = localPos;
-                go.transform.localRotation = rotated ? Quaternion.Euler(0, 90, 0) : Quaternion.identity;
-                go.transform.localScale = new Vector3(blockLength, blockHeight, blockWidth);
+                go.transform.localRotation = alongX ? Quaternion.Euler(0, 90, 0) : Quaternion.identity;
+                go.transform.localScale = BlockScale;
 
                 JengaBlock block = go.GetComponent<JengaBlock>();
                 block.layerIndex = layer;
@@ -221,7 +240,7 @@ public class TowerBuilder : MonoBehaviour
         int top = TopLayerIndex;
         bool[] used = new bool[3];
         int occupied = 0;
-        bool topRotated = top % 2 == 1;
+        bool topAlongX = top % 2 == 1;
         bool foundOrientation = false;
         float layerY = 0f;
         int layerSamples = 0;
@@ -237,7 +256,7 @@ public class TowerBuilder : MonoBehaviour
 
             if (!foundOrientation)
             {
-                topRotated = Mathf.Abs(Vector3.Dot(block.transform.right, transform.forward)) > 0.7f;
+                topAlongX = IsLongAxisAlongX(block.transform);
                 foundOrientation = true;
             }
 
@@ -247,41 +266,42 @@ public class TowerBuilder : MonoBehaviour
         }
 
         int placeLayer;
-        bool rotated;
+        bool alongX;
         float y;
 
         if (occupied >= 3)
         {
+            // Capa nueva: siempre cruzada respecto a la de abajo.
             placeLayer = top + 1;
-            rotated = !topRotated;
+            alongX = !topAlongX;
             y = TopY + blockHeight * 0.5f;
         }
         else
         {
+            // Se completa la capa actual, así que comparte su orientación.
             placeLayer = top;
-            rotated = topRotated;
+            alongX = topAlongX;
             y = layerSamples > 0 ? layerY / layerSamples : blockHeight * placeLayer + blockHeight * 0.5f;
         }
 
         for (int slot = 0; slot < 3; slot++)
         {
             if (occupied < 3 && used[slot]) continue;
-            slots.Add(MakeSlot(placeLayer, slot, rotated, y));
+            slots.Add(MakeSlot(placeLayer, slot, alongX, y));
         }
 
         return slots;
     }
 
-    PlacementSlot MakeSlot(int layer, int slot, bool rotated, float y)
+    PlacementSlot MakeSlot(int layer, int slot, bool alongX, float y)
     {
         float offset = (slot - 1) * blockWidth;
         return new PlacementSlot
         {
             layerIndex = layer,
             slotIndex = slot,
-            rotated = rotated,
-            localPosition = rotated ? new Vector3(offset, y, 0f) : new Vector3(0f, y, offset),
-            localRotation = rotated ? Quaternion.Euler(0f, 90f, 0f) : Quaternion.identity
+            localPosition = alongX ? new Vector3(0f, y, offset) : new Vector3(offset, y, 0f),
+            localRotation = alongX ? Quaternion.Euler(0f, 90f, 0f) : Quaternion.identity
         };
     }
 
@@ -321,7 +341,7 @@ public class TowerBuilder : MonoBehaviour
         // Apoyo exacto sobre la capa: un hueco aquí se traduce en un golpe al
         // activar la física y suele tumbar la torre.
         block.transform.localPosition = slot.localPosition;
-        block.transform.localScale = new Vector3(blockLength, blockHeight, blockWidth);
+        block.transform.localScale = BlockScale;
         block.SetColliderEnabled(true);
         block.SetKinematic(true);
     }

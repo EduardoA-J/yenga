@@ -69,11 +69,6 @@ public class TurnManager : MonoBehaviour
         AnnounceTurn();
     }
 
-    public void NextTurn()
-    {
-        CompleteTurn();
-    }
-
     public void NotifyInvalidMove(string reason)
     {
         if (gameOver) return;

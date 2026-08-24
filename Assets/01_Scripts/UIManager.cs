@@ -94,7 +94,7 @@ public class UIManager : MonoBehaviour
             if (playing)
             {
                 hintText.text = TurnManager.Instance != null && TurnManager.Instance.Phase == TurnManager.TurnPhase.Place
-                    ? "Arrastra el bloque a una ranura verde de la cima y suéltalo."
+                    ? "Sube el bloque hasta la cima y suéltalo sobre una ranura verde."
                     : "Toca un bloque (no el de arriba), sácalo y luego colócalo en la cima.";
             }
         }
@@ -119,7 +119,7 @@ public class UIManager : MonoBehaviour
 
         SetMessageVisible(hintText, true);
         hintText.text = TurnManager.Instance.Phase == TurnManager.TurnPhase.Place
-            ? "Arrastra el bloque a una ranura verde de la cima y suéltalo."
+            ? "Sube el bloque hasta la cima y suéltalo sobre una ranura verde."
             : "Toca un bloque (no el de arriba), sácalo y luego colócalo en la cima.";
     }
 

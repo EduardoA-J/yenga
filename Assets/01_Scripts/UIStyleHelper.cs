@@ -60,7 +60,7 @@ public static class UIStyleHelper
         return CreateMessage(canvas, name, kind, anchoredPos);
     }
 
-    public static TMP_Text CreateMessage(Transform canvas, string name, MessageKind kind, Vector2 anchoredPos)
+    static TMP_Text CreateMessage(Transform canvas, string name, MessageKind kind, Vector2 anchoredPos)
     {
         GameObject card = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         card.transform.SetParent(canvas, false);

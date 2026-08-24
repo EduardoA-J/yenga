@@ -25,7 +25,14 @@ public class JengaBlock : MonoBehaviour
     Color originalColor = Color.white;
     Transform gravitySource;
 
-    public Rigidbody Rigidbody => rb;
+    public BoxCollider Collider
+    {
+        get
+        {
+            if (boxCollider == null) boxCollider = GetComponent<BoxCollider>();
+            return boxCollider;
+        }
+    }
 
     void Awake()
     {
